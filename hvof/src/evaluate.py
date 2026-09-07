@@ -115,6 +115,75 @@ def in_sample(model, X, y) -> dict:
     m = clone(model).fit(X, y)
     return _metrics(y, m.predict(X))
 
+# --------------------------------------------------- paired comparison
+ 
+def paired_compare(model_a, Xa, model_b, Xb, y,
+                   n_splits=5, n_repeats=20, seed=0) -> dict:
+    """Compare two (model, feature-set) combinations on IDENTICAL folds.
+ 
+    Why paired
+    ----------
+    Most of the variance in a cross-validated score across repeats is fold
+    *difficulty*, not model quality: an unlucky split hurts both models
+    equally. Because we force both models through the same folds, that
+    shared component cancels when we take the per-repeat difference. The
+    paired standard deviation is typically far smaller than either model's
+    marginal standard deviation, so this test is much more sensitive.
+ 
+    The Nadeau-Bengio correction
+    ----------------------------
+    A plain paired t-test assumes the per-repeat differences are
+    independent. They are not: training sets across folds and repeats
+    overlap heavily, so the naive variance is too small and the naive
+    t-statistic is too large. Nadeau & Bengio (2003) showed the variance
+    should be inflated by a factor
+ 
+        1/k + n_test / n_train
+ 
+    where k is the number of folds. Without this, repeated CV produces
+    p-values that are wrong by an order of magnitude -- an extremely
+    common error in applied ML papers. We report both so the difference
+    is visible.
+ 
+    Returns
+    -------
+    dict with mean difference (B minus A), its raw and corrected
+    standard error, the corrected t statistic, and the win rate.
+    """
+    from scipy import stats
+
+    n = len(y)
+    n_test = n/n_splits
+    n_train = n-n_test
+
+    diffs = []
+    for r in range(n_repeats):
+        cv = RepeatedKFold(n_splits = n_splits, n_repeats = 1, random_state = seed +r )
+        oof_a = cross_val_predict(clone(model_a), Xa,y,cv=cv)
+        oof_b = cross_val_predict(clone(model_b),Xb,y, cv = cv)
+        diffs.append(r2_score(y, oof_b)- r2_score(y, oof_a))
+    d = np.array(diffs)
+    mean_d = d.mean()
+    var_d = d.var(ddof=1)
+
+    se_naive = np.sqrt(var_d / n_repeats)
+    correction = (1.0 / n_splits)+(n_test / n_train)
+    se_correccted = np.sqrt(var_d *correction)
+
+    t_corr = mean_d / se_corrected if se_corrected > 0 else np.nan
+    p_corr = 2* (1- stats.t.cdf(abs(t_corr), df = n_repeats -1))
+
+    return {
+        "mean_diff": mean_d,
+        "sd_diff": np.sqrt(var_d),
+        "se_naive": se_naive,
+        "se_corrected": se_corrected,
+        "t_corrected": t_corr,
+        "p_corrected": p_corr,
+        "win_rate": float((d>0).mean()),
+    }
+
+
 
 # --------------------------------------------------------------- runner
 

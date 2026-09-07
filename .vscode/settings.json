@@ -1,0 +1,9 @@
+{
+    "claudeCode.autosave": false,
+    "telemetry.editStats.details.enabled": true,
+    "telemetry.editStats.showStatusBar": true,
+    "terminal.explorerKind": "both",
+    "editor.inlineSuggest.suppressSuggestions": true,
+    "editor.quickSuggestionsDelay": 100,
+    "python.REPL.enableREPLSmartSend": false
+}

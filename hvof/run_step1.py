@@ -24,7 +24,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures , StandardScaler
 
 import data
-from evaluate import benchmark
+from hvof.src.evaluate import benchmark
 
 ALPHAS = np.logspace(-3, 3, 25)
 
